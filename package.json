@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "l10n": "./package.nls.json",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "imjakey",
   "engines": {
     "vscode": "^1.74.0"
