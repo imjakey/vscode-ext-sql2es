@@ -75,6 +75,11 @@
           "default": "gpt-3.5-turbo",
           "markdownDescription": "%config.model.description%"
         },
+        "sql2es.esEndpoint": {
+          "type": "string",
+          "default": "http://localhost:9200",
+          "markdownDescription": "%config.esEndpoint.description%"
+        },
         "sql2es.esVersion": {
           "type": "string",
           "default": "7.x",

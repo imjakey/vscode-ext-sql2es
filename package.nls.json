@@ -9,6 +9,8 @@
   "config.model.description": "AI model to use for conversion",
   "config.apiEndpoint.title": "API Endpoint",
   "config.apiEndpoint.description": "Endpoint URL for the AI model service",
+  "config.esEndpoint.title": "ES Endpoint",
+  "config.esEndpoint.description": "Endpoint for Elasticsearch. Only used when generating curl commands",
   "config.esVersion.title": "ES Version",
   "config.esVersion.description": "Elasticsearch version to use for conversion",
   "config.esUsername.title": "ES Username",

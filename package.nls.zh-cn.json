@@ -9,6 +9,8 @@
   "config.model.description": "用于转换的AI模型",
   "config.apiEndpoint.title": "API端点",
   "config.apiEndpoint.description": "AI模型服务的端点URL",
+  "config.esEndpoint.title": "ES 服务器端点",
+  "config.esEndpoint.description": "Elasticsearch服务器地址，仅用于生成Curl命令模式",
   "config.esVersion.title": "ES版本",
   "config.esVersion.description": "用于转换的Elasticsearch版本",
   "config.esUsername.title": "ES用户名",
