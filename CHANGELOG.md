@@ -2,7 +2,12 @@
 
 All notable changes to the "sql2es" extension will be documented in this file.
 
-## [0.0.1] - 2023-06-01
+
+## [0.0.2] - 2025-08-13
+
+- Bugfix & impove i18n translation
+
+## [0.0.1] - 2025-08-13
 
 - Initial release
 - Added SQL to Elasticsearch conversion functionality
