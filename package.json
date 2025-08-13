@@ -3,6 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.1",
+  "publisher": "imjakey",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -14,17 +15,17 @@
     "Programming Languages"
   ],
   "keywords": [
-		"SQL",
-		"MySQL",
-		"Elasticsearch",
-		"ES",
+    "SQL",
+    "MySQL",
+    "Elasticsearch",
+    "ES",
     "Es",
     "DSL",
     "converter",
-		"mysql",
-		"database",
-		"数据库"
-	],
+    "mysql",
+    "database",
+    "数据库"
+  ],
   "icon": "images/icon.png",
   "activationEvents": [
     "onCommand:sql2es.convert",
