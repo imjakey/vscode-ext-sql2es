@@ -1,0 +1,14 @@
+{
+  "displayName": "SQL to ES DSL转换器",
+  "description": "一个VSCode扩展，用于将选中的SQL文本转换为Elasticsearch查询语句",
+  "command.convert.title": "SQL2Es：将SQL转换为Elasticsearch DSL",
+  "command.convertSelected.title": "SQL2Es：将选中的SQL转换为Elasticsearch DSL",
+  "command.convertToCurl.title": "SQL2Es：将选中的SQL转换为Elasticsearch Curl命令",
+  "config.title": "SQL2Es转换器",
+  "config.apiKey.description": "AI模型服务的API密钥",
+  "config.apiEndpoint.description": "AI模型服务的端点",
+  "config.model.description": "用于转换的AI模型",
+  "config.esVersion.description": "用于转换的Elasticsearch版本",
+  "config.esUsername.description": "Elasticsearch用户名",
+  "config.esPassword.description": "Elasticsearch用户密码"
+}

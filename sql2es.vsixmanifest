@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+  <Metadata>
+    <Identity Language="en-US" Id="sql2es" Version="0.0.1" Publisher="imjakey" />
+    <DisplayName>SQL to Elasticsearch Converter</DisplayName>
+    <Description xml:space="preserve">A VSCode extension to convert selected SQL text to Elasticsearch query statements.</Description>
+    <Tags>sql, elasticsearch, converter, dsl</Tags>
+    <Categories>Other</Categories>
+    <Icon>images/icon.png</Icon>
+    <PreviewImage>images/preview.png</PreviewImage>
+    <Properties>
+      <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.74.0" />
+      <Property Id="Microsoft.VisualStudio.Code.ExtensionDependencies" Value="" />
+      <Property Id="Microsoft.VisualStudio.Code.ExtensionPack" Value="" />
+      <Property Id="Microsoft.VisualStudio.Code.LocalizedLanguages" Value="" />
+    </Properties>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Code" />
+  </Installation>
+  <Dependencies />
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="package.json" Addressable="true" />
+  </Assets>
+</PackageManifest>

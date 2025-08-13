@@ -1,0 +1,14 @@
+{
+  "displayName": "SQL to Es DSL Converter",
+  "description": "A VSCode extension to convert selected SQL text to Elasticsearch query statements",
+  "command.convert.title": "SQL2Es: Convert SQL to Elasticsearch DSL",
+  "command.convertSelected.title": "SQL2Es: Convert Selected SQL to Elasticsearch DSL",
+  "command.convertToCurl.title": "SQL2Es: Convert Selected SQL to Elasticsearch Curl Command",
+  "config.title": "SQL to Es Converter",
+  "config.apiKey.description": "API Key for the AI model service",
+  "config.apiEndpoint.description": "Endpoint for the AI model service",
+  "config.model.description": "AI model to use for conversion",
+  "config.esVersion.description": "Elasticsearch version to use for conversion",
+  "config.esUsername.description": "Username for the Elasticsearch service",
+  "config.esPassword.description": "Password for the Elasticsearch service"
+}
