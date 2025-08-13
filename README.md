@@ -1,6 +1,7 @@
 # SQL to Elasticsearch Converter
 
 [English](README.en.md) | 中文
+
 这是一个VSCode扩展，可以将选中的SQL文本转换为Elasticsearch查询语句。
 
 ## 多语言支持
