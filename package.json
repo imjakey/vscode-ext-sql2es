@@ -2,6 +2,7 @@
   "name": "sql2es",
   "displayName": "%displayName%",
   "description": "%description%",
+  "l10n": "./package.nls.json",
   "version": "0.0.1",
   "publisher": "imjakey",
   "engines": {
@@ -29,7 +30,6 @@
   "icon": "images/icon.png",
   "activationEvents": [
     "onCommand:sql2es.convert",
-    "onCommand:sql2es.convertSelected",
     "onCommand:sql2es.convertToCurl"
   ],
   "main": "./out/extension.js",
@@ -40,10 +40,6 @@
         "title": "%command.convert.title%"
       },
       {
-        "command": "sql2es.convertSelected",
-        "title": "%command.convertSelected.title%"
-      },
-      {
         "command": "sql2es.convertToCurl",
         "title": "%command.convertToCurl.title%"
       }
@@ -51,7 +47,7 @@
     "menus": {
       "editor/context": [
         {
-          "command": "sql2es.convertSelected",
+          "command": "sql2es.convert",
           "when": "editorHasSelection",
           "group": "navigation"
         },
@@ -63,27 +59,36 @@
       ]
     },
     "configuration": {
-      "title": "%config.title%",
       "properties": {
         "sql2es.apiKey": {
           "type": "string",
           "default": "",
-          "description": "%config.apiKey.description%"
+          "markdownDescription": "%config.apiKey.description%"
         },
         "sql2es.apiEndpoint": {
           "type": "string",
           "default": "https://api.openai.com/v1/chat/completions",
-          "description": "%config.apiEndpoint.description%"
+          "markdownDescription": "%config.apiEndpoint.description%"
         },
         "sql2es.model": {
           "type": "string",
           "default": "gpt-3.5-turbo",
-          "description": "%config.model.description%"
+          "markdownDescription": "%config.model.description%"
         },
         "sql2es.esVersion": {
           "type": "string",
           "default": "7.x",
-          "description": "%config.esVersion.description%"
+          "markdownDescription": "%config.esVersion.description%"
+        },
+        "sql2es.esUsername": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.esUsername.description%"
+        },
+        "sql2es.esPassword": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.esPassword.description%"
         }
       }
     }

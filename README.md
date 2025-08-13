@@ -13,6 +13,16 @@
 
 如果您使用的是其他语言，扩展将默认显示为英语。
 
+### 添加新的语言支持
+
+如果您希望为本扩展添加新的语言支持，可以按照以下步骤操作：
+
+1. 复制 `package.nls.json` 文件并重命名为 `package.nls.{language-code}.json`（例如 `package.nls.fr.json` 代表法语）
+2. 将文件中的所有字符串翻译为对应的语言
+3. 提交Pull Request到本项目的GitHub仓库
+
+我们欢迎社区贡献新的语言翻译！
+
 ## 功能特性
 
 1. 将SQL查询转换为Elasticsearch查询DSL

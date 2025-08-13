@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from './config';
+import { Localize, ErrorKeys } from './localize';
 
 /**
  * SQL到Elasticsearch查询语句转换器
@@ -14,13 +15,16 @@ export class SQLToESConverter {
    * @returns 转换后的Elasticsearch查询DSL和API路径
    */
   async convertSQLToES(sql: string): Promise<{ apiPath: string; queryDSL: string }> {
+    if (!sql) {
+      throw new Error(Localize.localize(ErrorKeys.emptySQL));
+    }
     const apiKey = this.configManager.getApiKey();
     const apiEndpoint = this.configManager.getApiEndpoint();
     const model = this.configManager.getModel();
     const esVersion = this.configManager.getEsVersion();
 
     if (!apiKey) {
-      throw new Error('API key is not configured. Please set it in the extension settings.');
+      throw new Error(Localize.localize(ErrorKeys.noAPIKey));
     }
 
     // 构建AI模型的提示
@@ -70,13 +74,13 @@ export class SQLToESConverter {
     });
 
     if (!response.ok) {
-      throw new Error(`AI model API request failed with status ${response.status}: ${response.statusText}`);
+      throw new Error(Localize.localize(ErrorKeys.apiRequestFailed, response.status, response.statusText));
     }
 
     const data = await response.json();
     
     if (!data.choices || data.choices.length === 0) {
-      throw new Error('AI model returned no results');
+      throw new Error(Localize.localize(ErrorKeys.noAIResults));
     }
 
     return data.choices[0].message.content.trim();
@@ -107,7 +111,7 @@ export class SQLToESConverter {
   async insertResult(result: { apiPath: string; queryDSL: string }, selection: vscode.Selection): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      throw new Error('No active editor found!');
+      throw new Error(Localize.localize(ErrorKeys.noActiveEditor));
     }
 
     // 构建要插入的文本
@@ -125,6 +129,10 @@ export class SQLToESConverter {
    * @returns Elasticsearch的curl命令
    */
   async convertSQLToCurl(sql: string): Promise<string> {
+    if (!sql) {
+      throw new Error(Localize.localize(ErrorKeys.emptySQL));
+    }
+
     // 首先获取API路径和查询DSL
     const { apiPath, queryDSL } = await this.convertSQLToES(sql);
     
@@ -161,7 +169,7 @@ export class SQLToESConverter {
   async insertCurlResult(curlCommand: string, selection: vscode.Selection): Promise<void> {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-      throw new Error('No active editor found!');
+      throw new Error(Localize.localize(ErrorKeys.noActiveEditor));
     }
 
     // 构建要插入的文本
