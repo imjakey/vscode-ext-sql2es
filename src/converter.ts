@@ -7,7 +7,7 @@ import { Localize, ErrorKeys } from './localize';
  * 使用AI模型将SQL查询转换为Elasticsearch查询DSL
  */
 export class SQLToESConverter {
-  constructor(private configManager: ConfigManager) {}
+  constructor(private configManager: ConfigManager) { }
 
   /**
    * 将SQL查询转换为Elasticsearch查询DSL
@@ -32,15 +32,15 @@ export class SQLToESConverter {
 
     // 调用AI模型API
     const response = await this.callAIModel(apiEndpoint, apiKey, model, prompt);
-    
+
     // 解析API路径和查询DSL
     const lines = response.split('\n');
     const apiPath = lines[0].trim();
     const queryDSL = lines.slice(1).join('\n').trim();
-    
+
     // 格式化返回的JSON
     const formattedDSL = this.formatJSON(queryDSL);
-    
+
     return { apiPath, queryDSL: formattedDSL };
   }
 
@@ -78,7 +78,7 @@ export class SQLToESConverter {
     }
 
     const data = await response.json();
-    
+
     if (!data.choices || data.choices.length === 0) {
       throw new Error(Localize.localize(ErrorKeys.noAIResults));
     }
@@ -92,6 +92,11 @@ export class SQLToESConverter {
    * @returns 格式化后的JSON字符串
    */
   private formatJSON(jsonString: string): string {
+    // 去掉 ```json 和 ``` 首尾字符串
+    if (jsonString.startsWith('```json') && jsonString.endsWith('```')) {
+      jsonString = jsonString.slice('```json'.length, -'```'.length);
+    }
+
     try {
       // 尝试解析JSON以确保其有效性
       const parsed = JSON.parse(jsonString);
@@ -135,14 +140,14 @@ export class SQLToESConverter {
 
     // 首先获取API路径和查询DSL
     const { apiPath, queryDSL } = await this.convertSQLToES(sql);
-    
+
     // 解析HTTP方法和路径
     const parts = apiPath.split(' ');
     const method = parts[0];
     const path = parts.slice(1).join(' ');
 
     const esEndpoint = this.configManager.getEsEndpoint();
-    
+
     // 构建curl命令
     let curlCommand = `curl -X ${method} -H "Content-Type: application/json"`;
 
@@ -152,11 +157,14 @@ export class SQLToESConverter {
     if (username && password) {
       curlCommand += ` -u "${username}:${password}"`;
     }
-    
-    curlCommand += `" ${esEndpoint}${path}"`;
-    
+
+    curlCommand += ` "${esEndpoint}${path}"`;
+
     if (queryDSL !== '') {
-      curlCommand += ` -d '${queryDSL}'`;
+      // 将格式化的json字符串压缩为单行，防止curl命令错误
+      const parsed = JSON.parse(queryDSL);
+      const compressedDSL = JSON.stringify(parsed, null, 0);
+      curlCommand += ` -d '${compressedDSL}'`;
     }
     return curlCommand;
   }
@@ -191,7 +199,7 @@ export class SQLToESConverter {
       content: result,
       language: 'json'
     });
-    
+
     // 显示文档
     await vscode.window.showTextDocument(document, {
       preview: false

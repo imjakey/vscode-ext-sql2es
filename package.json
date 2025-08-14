@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "l10n": "./package.nls.json",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "imjakey",
   "engines": {
     "vscode": "^1.74.0"
@@ -12,6 +12,9 @@
     "type": "git",
     "url": "https://github.com/imjakey/vscode-ext-sql2es"
   },
+  "activationEvents": [
+		"onStartupFinished"
+	],
   "categories": [
     "Programming Languages"
   ],
@@ -28,10 +31,6 @@
     "数据库"
   ],
   "icon": "images/icon.png",
-  "activationEvents": [
-    "onCommand:sql2es.convert",
-    "onCommand:sql2es.convertToCurl"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [

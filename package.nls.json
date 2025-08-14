@@ -1,8 +1,8 @@
 {
   "displayName": "SQL to ES Converter",
   "description": "Convert SQL queries to Elasticsearch DSL using AI models.",
-  "command.convert.title": "Convert SQL to ES",
-  "command.convertToCurl.title": "Convert SQL to ES Curl Command",
+  "command.convert.title": "SQL2Es: Convert SQL to ES DSL",
+  "command.convertToCurl.title": "SQL2Es: Convert SQL to ES Curl Command",
   "config.apiKey.title": "API Key",
   "config.apiKey.description": "API key for the AI model service",
   "config.model.title": "Model",

@@ -2,6 +2,9 @@
 
 All notable changes to the "sql2es" extension will be documented in this file.
 
+## [0.0.3] - 2025-08-14
+
+- Bugfix when AI model return ES DSL with ` ```json ``` ` wrapped
 
 ## [0.0.2] - 2025-08-13
 
