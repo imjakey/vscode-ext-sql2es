@@ -21,6 +21,11 @@ If you are using another language, the extension will default to English.
 4. Automatic formatting of conversion results
 5. Configurable AI model parameters
 6. Multi-language support (English and Chinese)
+7. Conversion history feature:
+   - Automatically save conversion records
+   - View historical conversion records
+   - Perform operations like copy, insert, view on historical records
+   - Clear conversion history
 
 ## Installation
 

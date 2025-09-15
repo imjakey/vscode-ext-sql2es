@@ -23,5 +23,20 @@
   "error.noAIResults": "AI model returned no results",
   "error.noActiveEditor": "No active editor found!",
   "error.noTextSelected": "No text selected!",
-  "error.conversionFailed": "Conversion failed: {0}"
+  "error.conversionFailed": "Conversion failed: {0}",
+  "error.noHistoryRecords": "No conversion history records found.",
+  "history.view.title": "SQL2Es: View Conversion History",
+  "history.clear.title": "SQL2Es: Clear Conversion History",
+  "history.item.title": "SQL to {0} Conversion",
+  "history.item.details": "Converted on {0}",
+  "history.item.type.dsl": "Elasticsearch DSL",
+  "history.item.type.curl": "Curl Command",
+  "history.clear.confirmation": "Are you sure you want to clear all conversion history records?",
+  "history.cleared.message": "Conversion history has been cleared.",
+  "history.action.viewSQL": "View SQL",
+  "history.action.viewResult": "View Result",
+  "history.action.copySQL": "Copy SQL",
+  "history.action.copyResult": "Copy Result",
+  "history.action.insertSQL": "Insert SQL",
+  "history.action.insertResult": "Insert Result"
 }

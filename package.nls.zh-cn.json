@@ -23,5 +23,20 @@
   "error.noAIResults": "AI模型未返回结果",
   "error.noActiveEditor": "未找到活动编辑器！",
   "error.noTextSelected": "未选择文本！",
-  "error.conversionFailed": "转换失败: {0}"
+  "error.conversionFailed": "转换失败: {0}",
+  "error.noHistoryRecords": "未找到转换历史记录。",
+  "history.view.title": "SQL2Es: 查看转换历史",
+  "history.clear.title": "SQL2Es: 清除转换历史",
+  "history.item.title": "SQL到{0}转换",
+  "history.item.details": "转换时间：{0}",
+  "history.item.type.dsl": "Elasticsearch DSL",
+  "history.item.type.curl": "Curl命令",
+  "history.clear.confirmation": "确定要清除所有转换历史记录吗？",
+  "history.cleared.message": "转换历史已清除。",
+  "history.action.viewSQL": "查看SQL",
+  "history.action.viewResult": "查看结果",
+  "history.action.copySQL": "复制SQL",
+  "history.action.copyResult": "复制结果",
+  "history.action.insertSQL": "插入SQL",
+  "history.action.insertResult": "插入结果"
 }
