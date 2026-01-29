@@ -9,7 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const configManager = new ConfigManager();
 	const converter = new SQLToESConverter(configManager);
-	const historyManager = new HistoryManager(context.globalState);
+	const historyManager = new HistoryManager(context);
 
 	// 注册命令：转换选中的文本
 	let disposableConvertSelected = vscode.commands.registerCommand('sql2es.convert', async () => {
@@ -33,7 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
 			// 保存转换历史
 			await historyManager.saveConversionHistory(selectedText, result, 'dsl');
 		} catch (error) {
-			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, error));
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, errorMessage));
 		}
 	});
 
@@ -59,15 +60,14 @@ export function activate(context: vscode.ExtensionContext) {
 			// 保存转换历史
 			await historyManager.saveConversionHistory(selectedText, { curlCommand }, 'curl');
 		} catch (error) {
-			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, error));
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, errorMessage));
 		}
 	});
 
 	// 注册命令：查看转换历史
 	let disposableViewHistory = vscode.commands.registerCommand('sql2es.viewHistory', async () => {
 		try {
-			const history = await historyManager.getConversionHistory();
-			
 			// 创建webview面板
 			const panel = vscode.window.createWebviewPanel(
 				'sql2esHistory',
@@ -79,223 +79,65 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			);
 
-			// 格式化时间戳为可读时间
-			const formatDate = (timestamp: number): string => {
-				const date = new Date(timestamp);
-				return date.toLocaleString();
-			};
+			// 设置webview HTML内容（不包含数据）
+			panel.webview.html = getWebviewContent({
+				title: Localize.localize(HistoryKeys.viewHistoryCommand),
+				searchPlaceholder: Localize.localize(HistoryKeys.searchPlaceholder),
+				filterAll: Localize.localize(HistoryKeys.filterAll),
+				filterDSL: Localize.localize(HistoryKeys.filterDSL),
+				filterCurl: Localize.localize(HistoryKeys.filterCurl),
+				refresh: Localize.localize(HistoryKeys.refreshBtn),
+				loading: Localize.localize(HistoryKeys.loadingText),
+				empty: Localize.localize(HistoryKeys.emptyText),
+				colSQL: Localize.localize(HistoryKeys.colSQL),
+				colType: Localize.localize(HistoryKeys.colType),
+				colDate: Localize.localize(HistoryKeys.colDate),
+				colActions: Localize.localize(HistoryKeys.colActions),
+				viewSQL: Localize.localize(HistoryKeys.viewSQLAction),
+				viewResult: Localize.localize(HistoryKeys.viewResultAction),
+				copySQL: Localize.localize(HistoryKeys.copySQLAction),
+				copyResult: Localize.localize(HistoryKeys.copyResultAction),
+				deleteBtn: Localize.localize(HistoryKeys.deleteBtn),
+				prev: Localize.localize(HistoryKeys.prevBtn),
+				next: Localize.localize(HistoryKeys.nextBtn),
+				pageInfo: Localize.localize(HistoryKeys.pageInfo)
+			});
 
-			// 提供初始HTML内容
-			updateWebviewContent(panel, history, formatDate);
+			// 加载并发送历史记录数据
+			await loadAndSendHistory(panel, historyManager);
 
 			// 监听webview消息
 			panel.webview.onDidReceiveMessage(async message => {
 				switch (message.command) {
 					case 'copySQL':
-						// 查找对应的历史记录项
-						const itemToCopySQL = history.find(item => item.id === message.id);
-						if (itemToCopySQL) {
-							await vscode.env.clipboard.writeText(itemToCopySQL.sqlQuery);
-							panel.webview.postMessage({ command: 'showNotification', text: 'SQL copied to clipboard' });
-						}
+						await handleCopySQL(message.id, historyManager, panel);
 						break;
 					case 'copyResult':
-						// 查找对应的历史记录项
-						const itemToCopyResult = history.find(item => item.id === message.id);
-						if (itemToCopyResult) {
-							const resultToCopy = itemToCopyResult.type === 'dsl' 
-								? (itemToCopyResult.apiPath ? itemToCopyResult.apiPath + '\n' : '') + (itemToCopyResult.esQuery || '')
-								: itemToCopyResult.curlCommand || '';
-							await vscode.env.clipboard.writeText(resultToCopy);
-							panel.webview.postMessage({ command: 'showNotification', text: 'Result copied to clipboard' });
-						}
+						await handleCopyResult(message.id, historyManager, panel);
 						break;
 					case 'confirmDelete':
-						// 使用VS Code的API显示确认对话框
-						const deleteConfirmed = await vscode.window.showInformationMessage(
-							'Are you sure you want to delete this record?',
-							{ modal: true },
-							'Yes',
-							'No'
-						);
-						if (deleteConfirmed === 'Yes') {
-							// 执行删除操作
-							const newHistory = history.filter(item => item.id !== message.id);
-							await historyManager.updateConversionHistory(newHistory);
-							// 更新历史记录数组
-							history.length = 0;
-							newHistory.forEach(item => history.push(item));
-							// 更新webview内容
-							updateWebviewContent(panel, history, formatDate);
-							panel.webview.postMessage({ command: 'showNotification', text: 'Record deleted' });
-						}
-						break;
-					case 'deleteRecord':
-						// 为了向后兼容，保留原有的deleteRecord命令处理
-						const newHistoryCompat = history.filter(item => item.id !== message.id);
-						await historyManager.updateConversionHistory(newHistoryCompat);
-						// 更新历史记录数组
-						history.length = 0;
-						newHistoryCompat.forEach(item => history.push(item));
-						// 更新webview内容
-						updateWebviewContent(panel, history, formatDate);
-						panel.webview.postMessage({ command: 'showNotification', text: 'Record deleted' });
+						await handleConfirmDelete(message.id, historyManager, panel);
 						break;
 					case 'changePage':
-						// 更新webview内容显示新的页面
-						updateWebviewContent(panel, history, formatDate, message.page);
+						await handleChangePage(message.page, panel, historyManager);
+						break;
+					case 'viewSQL':
+						await handleViewSQL(message.id, historyManager);
+						break;
+					case 'viewResult':
+						await handleViewResult(message.id, historyManager);
+						break;
+					case 'refresh':
+						await loadAndSendHistory(panel, historyManager);
 						break;
 				}
 			}, undefined, context.subscriptions);
 
-			// 如果没有历史记录，更新webview内容显示空状态
-			if (history.length === 0) {
-				updateWebviewContent(panel, history, formatDate);
-			}
-
 		} catch (error) {
-			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, error));
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, errorMessage));
 		}
 	});
-
-	/**
-	 * 更新webview内容
-	 */
-	function updateWebviewContent(panel: vscode.WebviewPanel, history: ConversionHistoryItem[], formatDate: (timestamp: number) => string, page: number = 1) {
-		const itemsPerPage = 10;
-		const totalPages = Math.ceil(history.length / itemsPerPage);
-		const startIndex = (page - 1) * itemsPerPage;
-		const endIndex = Math.min(startIndex + itemsPerPage, history.length);
-		const currentPageItems = history.slice(startIndex, endIndex);
-
-		// 预获取所有需要的本地化字符串
-		const noHistoryRecordsText = Localize.localize(ErrorKeys.noHistoryRecords);
-		const viewHistoryCommandText = Localize.localize(HistoryKeys.viewHistoryCommand);
-
-		// 生成表格HTML
-		let tableHtml = '';
-		if (history.length === 0) {
-			tableHtml = `<div style="text-align: center; padding: 20px; color: #666;">${noHistoryRecordsText}</div>`;
-		} else {
-			tableHtml = `
-				<table style="width: 100%; border-collapse: collapse; font-family: var(--vscode-font-family);">
-					<thead>
-						<tr style="background-color: var(--vscode-list-hoverBackground);">
-							<th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">SQL Query</th>
-							<th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">Type</th>
-							<th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">Date</th>
-							<th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">Actions</th>
-						</tr>
-					</thead>
-					<tbody>
-						${currentPageItems.map(item => `
-							<tr style="${currentPageItems.indexOf(item) % 2 === 0 ? 'background-color: var(--vscode-editor-background);' : 'background-color: var(--vscode-editor-inactiveSelectionBackground);'}">
-								<td style="padding: 8px; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder); max-width: 400px; word-break: break-all;">${escapeHtml(item.sqlQuery.substring(0, 100))}${item.sqlQuery.length > 100 ? '...' : ''}</td>
-								<td style="padding: 8px; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">${item.type === 'dsl' ? 'DSL' : 'Curl'}</td>
-								<td style="padding: 8px; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">${formatDate(item.timestamp)}</td>
-								<td style="padding: 8px; border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);">
-									<button onclick="copySQL('${item.id}')" style="margin-right: 5px; padding: 4px 8px; background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 3px; cursor: pointer;">Copy SQL</button>
-									<button onclick="copyResult('${item.id}')" style="margin-right: 5px; padding: 4px 8px; background-color: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; border-radius: 3px; cursor: pointer;">Copy DSL</button>
-									<button onclick="deleteRecord('${item.id}')" style="padding: 4px 8px; background-color: var(--vscode-errorForeground); color: white; border: none; border-radius: 3px; cursor: pointer;">Delete</button>
-								</td>
-							</tr>
-						`).join('')}
-					</tbody>
-				</table>`;
-		}
-
-		// 生成分页HTML
-		let paginationHtml = '';
-		if (history.length > 0) {
-			paginationHtml = `
-				<div style="margin-top: 20px; text-align: center;">
-					<button onclick="changePage(${page > 1 ? page - 1 : 1})" disabled="${page === 1}" style="margin-right: 10px; padding: 4px 10px; background-color: ${page === 1 ? 'var(--vscode-button-secondaryBackground)' : 'var(--vscode-button-background)'}; color: ${page === 1 ? 'var(--vscode-button-secondaryForeground)' : 'var(--vscode-button-foreground)'}; border: none; border-radius: 3px; cursor: ${page === 1 ? 'not-allowed' : 'pointer'};">Previous</button>
-					<span style="margin: 0 10px;">Page ${page} of ${totalPages}</span>
-					<button onclick="changePage(${page < totalPages ? page + 1 : totalPages})" disabled="${page === totalPages}" style="margin-left: 10px; padding: 4px 10px; background-color: ${page === totalPages ? 'var(--vscode-button-secondaryBackground)' : 'var(--vscode-button-background)'}; color: ${page === totalPages ? 'var(--vscode-button-secondaryForeground)' : 'var(--vscode-button-foreground)'}; border: none; border-radius: 3px; cursor: ${page === totalPages ? 'not-allowed' : 'pointer'};">Next</button>
-				</div>`;
-		}
-
-		// 生成完整的HTML
-		const html = `
-			<!DOCTYPE html>
-			<html lang="en">
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>${viewHistoryCommandText}</title>
-				<style>
-					body {
-						background-color: var(--vscode-editor-background);
-						color: var(--vscode-editor-foreground);
-						padding: 20px;
-						margin: 0;
-					}
-					h1 {
-						color: var(--vscode-editor-foreground);
-						margin-bottom: 20px;
-					}
-					button:disabled {
-						opacity: 0.5;
-					}
-				</style>
-			</head>
-			<body>
-				<h1>${viewHistoryCommandText}</h1>
-				${tableHtml}
-				${paginationHtml}
-				
-				<script>
-					const vscode = acquireVsCodeApi();
-					
-					function copySQL(id) {
-						vscode.postMessage({ command: 'copySQL', id: id });
-					}
-					
-					function copyResult(id) {
-						vscode.postMessage({ command: 'copyResult', id: id });
-					}
-					
-					function deleteRecord(id) {
-						// 不使用confirm()，而是向扩展发送消息，由扩展端显示确认对话框
-						vscode.postMessage({ command: 'confirmDelete', id: id });
-					}
-					
-					function changePage(page) {
-						vscode.postMessage({ command: 'changePage', page: page });
-					}
-					
-					// 监听来自扩展的消息
-					window.addEventListener('message', event => {
-						const message = event.data;
-						switch (message.command) {
-							case 'showNotification':
-								alert(message.text);
-								break;
-						}
-					});
-				</script>
-			</body>
-			</html>
-		`;
-
-		// 设置webview内容
-		panel.webview.html = html;
-	}
-
-	/**
-	 * HTML转义函数
-	 */
-	function escapeHtml(text: string): string {
-		// 使用简单的字符串替换进行HTML转义，避免创建DOM元素
-		const map: { [key: string]: string } = {
-			'&': '&amp;',
-			'<': '&lt;',
-			'>': '&gt;',
-			'"': '&quot;',
-			'\'': '&#039;'
-		};
-		return text.replace(/[&<>"']/g, (m) => map[m]);
-	}
 
 	// 注册命令：清除转换历史
 	let disposableClearHistory = vscode.commands.registerCommand('sql2es.clearHistory', async () => {
@@ -310,97 +152,499 @@ export function activate(context: vscode.ExtensionContext) {
 				await historyManager.clearConversionHistory();
 				vscode.window.showInformationMessage(Localize.localize(HistoryKeys.historyClearedMessage));
 			} catch (error) {
-				vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, error));
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				vscode.window.showErrorMessage(Localize.localize(ErrorKeys.conversionFailed, errorMessage));
 			}
 		}
 	});
-
-	/**
-	 * 处理历史记录项的操作
-	 */
-	async function handleHistoryItem(item: ConversionHistoryItem): Promise<void> {
-		// 创建操作菜单
-		const actions = [
-			{ label: Localize.localize(HistoryKeys.viewSQLAction), action: 'viewSQL' },
-			{ label: Localize.localize(HistoryKeys.viewResultAction), action: 'viewResult' },
-			{ label: Localize.localize(HistoryKeys.copySQLAction), action: 'copySQL' },
-			{ label: Localize.localize(HistoryKeys.copyResultAction), action: 'copyResult' },
-			{ label: Localize.localize(HistoryKeys.insertSQLAction), action: 'insertSQL' },
-			{ label: Localize.localize(HistoryKeys.insertResultAction), action: 'insertResult' }
-		];
-
-		const selectedAction = await vscode.window.showQuickPick(actions, {
-			placeHolder: 'Select an action',
-			canPickMany: false
-		});
-
-		if (!selectedAction) return;
-
-		const editor = vscode.window.activeTextEditor;
-
-		switch (selectedAction.action) {
-			case 'viewSQL':
-				// 在新文档中显示SQL
-				const sqlDoc = await vscode.workspace.openTextDocument({
-					content: item.sqlQuery,
-					language: 'sql'
-				});
-				await vscode.window.showTextDocument(sqlDoc, { preview: false });
-				break;
-			case 'viewResult':
-				// 在新文档中显示结果
-				const resultContent = item.type === 'dsl' 
-					? (item.apiPath ? item.apiPath + '\n\n' : '') + (item.esQuery || '')
-					: item.curlCommand || '';
-				const resultDoc = await vscode.workspace.openTextDocument({
-					content: resultContent,
-					language: item.type === 'dsl' ? 'json' : 'shellscript'
-				});
-				await vscode.window.showTextDocument(resultDoc, { preview: false });
-				break;
-			case 'copySQL':
-				// 复制SQL到剪贴板
-				await vscode.env.clipboard.writeText(item.sqlQuery);
-				vscode.window.showInformationMessage('SQL copied to clipboard');
-				break;
-			case 'copyResult':
-				// 复制结果到剪贴板
-				const resultToCopy = item.type === 'dsl' 
-					? (item.apiPath ? item.apiPath + '\n' : '') + (item.esQuery || '')
-					: item.curlCommand || '';
-				await vscode.env.clipboard.writeText(resultToCopy);
-				vscode.window.showInformationMessage('Result copied to clipboard');
-				break;
-			case 'insertSQL':
-				// 插入SQL到当前编辑器
-				if (editor) {
-					await editor.edit(editBuilder => {
-						editBuilder.insert(editor.selection.active, item.sqlQuery);
-					});
-				} else {
-					vscode.window.showErrorMessage(Localize.localize(ErrorKeys.noActiveEditor));
-				}
-				break;
-			case 'insertResult':
-				// 插入结果到当前编辑器
-				if (editor) {
-					const resultToInsert = item.type === 'dsl' 
-						? (item.apiPath ? item.apiPath + '\n' : '') + (item.esQuery || '')
-						: item.curlCommand || '';
-					await editor.edit(editBuilder => {
-						editBuilder.insert(editor.selection.active, resultToInsert);
-					});
-				} else {
-					vscode.window.showErrorMessage(Localize.localize(ErrorKeys.noActiveEditor));
-				}
-				break;
-		}
-	}
 
 	context.subscriptions.push(disposableConvertSelected);
 	context.subscriptions.push(disposableConvertToCurl);
 	context.subscriptions.push(disposableViewHistory);
 	context.subscriptions.push(disposableClearHistory);
+}
+
+/**
+ * 加载历史记录并发送到 WebView
+ */
+async function loadAndSendHistory(
+	panel: vscode.WebviewPanel,
+	historyManager: HistoryManager
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	panel.webview.postMessage({
+		command: 'loadHistory',
+		data: history
+	});
+}
+
+/**
+ * 处理复制 SQL
+ */
+async function handleCopySQL(
+	id: string,
+	historyManager: HistoryManager,
+	panel: vscode.WebviewPanel
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (item) {
+		await vscode.env.clipboard.writeText(item.sqlQuery);
+		panel.webview.postMessage({ command: 'showNotification', text: 'SQL copied to clipboard' });
+	}
+}
+
+/**
+ * 处理复制结果
+ */
+async function handleCopyResult(
+	id: string,
+	historyManager: HistoryManager,
+	panel: vscode.WebviewPanel
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (item) {
+		const resultText = item.type === 'dsl'
+			? (item.apiPath ? item.apiPath + '\n\n' : '') + (item.esQuery || '')
+			: item.curlCommand || '';
+		await vscode.env.clipboard.writeText(resultText);
+		panel.webview.postMessage({ command: 'showNotification', text: 'Result copied to clipboard' });
+	}
+}
+
+/**
+ * 处理确认删除
+ */
+async function handleConfirmDelete(
+	id: string,
+	historyManager: HistoryManager,
+	panel: vscode.WebviewPanel
+): Promise<void> {
+	const deleteConfirmed = await vscode.window.showInformationMessage(
+		'Are you sure you want to delete this record?',
+		{ modal: true },
+		'Yes',
+		'No'
+	);
+	if (deleteConfirmed === 'Yes') {
+		await historyManager.deleteConversionHistory(id);
+		await loadAndSendHistory(panel, historyManager);
+		panel.webview.postMessage({ command: 'showNotification', text: 'Record deleted' });
+	}
+}
+
+/**
+ * 处理分页
+ */
+async function handleChangePage(
+	page: number,
+	panel: vscode.WebviewPanel,
+	historyManager: HistoryManager
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	panel.webview.postMessage({
+		command: 'loadHistory',
+		data: history,
+		page: page
+	});
+}
+
+/**
+ * 处理查看 SQL
+ */
+async function handleViewSQL(id: string, historyManager: HistoryManager): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (item) {
+		const doc = await vscode.workspace.openTextDocument({
+			content: item.sqlQuery,
+			language: 'sql'
+		});
+		await vscode.window.showTextDocument(doc, { preview: false });
+	}
+}
+
+/**
+ * 处理查看结果
+ */
+async function handleViewResult(id: string, historyManager: HistoryManager): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (item) {
+		const content = item.type === 'dsl'
+			? (item.apiPath ? item.apiPath + '\n\n' : '') + (item.esQuery || '')
+			: item.curlCommand || '';
+		const doc = await vscode.workspace.openTextDocument({
+			content: content,
+			language: item.type === 'dsl' ? 'json' : 'shellscript'
+		});
+		await vscode.window.showTextDocument(doc, { preview: false });
+	}
+}
+
+interface WebviewContentOptions {
+	title: string;
+	searchPlaceholder: string;
+	filterAll: string;
+	filterDSL: string;
+	filterCurl: string;
+	refresh: string;
+	loading: string;
+	empty: string;
+	colSQL: string;
+	colType: string;
+	colDate: string;
+	colActions: string;
+	viewSQL: string;
+	viewResult: string;
+	copySQL: string;
+	copyResult: string;
+	deleteBtn: string;
+	prev: string;
+	next: string;
+	pageInfo: string;
+}
+
+/**
+ * 生成 WebView HTML 内容
+ */
+function getWebviewContent(i18n: WebviewContentOptions): string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>${i18n.title}</title>
+	<style>
+		* { box-sizing: border-box; }
+		body {
+			font-family: var(--vscode-font-family);
+			background-color: var(--vscode-editor-background);
+			color: var(--vscode-editor-foreground);
+			padding: 20px;
+			margin: 0;
+		}
+		h1 {
+			margin-bottom: 20px;
+			font-size: 1.5em;
+		}
+		.toolbar {
+			margin-bottom: 15px;
+			display: flex;
+			gap: 10px;
+			align-items: center;
+		}
+		.search-box {
+			flex: 1;
+			max-width: 300px;
+		}
+		.search-box input {
+			width: 100%;
+			padding: 6px 10px;
+			border: 1px solid var(--vscode-input-border);
+			background-color: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border-radius: 3px;
+		}
+		.filter-select {
+			padding: 6px 10px;
+			border: 1px solid var(--vscode-input-border);
+			background-color: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border-radius: 3px;
+		}
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 13px;
+		}
+		th, td {
+			padding: 10px;
+			text-align: left;
+			border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder);
+		}
+		th {
+			background-color: var(--vscode-list-hoverBackground);
+			font-weight: 600;
+		}
+		tr:hover {
+			background-color: var(--vscode-list-hoverBackground);
+		}
+		.sql-cell {
+			max-width: 300px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.type-badge {
+			display: inline-block;
+			padding: 2px 8px;
+			border-radius: 3px;
+			font-size: 11px;
+			font-weight: 600;
+		}
+		.type-badge.dsl {
+			background-color: var(--vscode-charts-blue);
+			color: white;
+		}
+		.type-badge.curl {
+			background-color: var(--vscode-charts-green);
+			color: white;
+		}
+		.actions {
+			display: flex;
+			gap: 5px;
+			flex-wrap: wrap;
+		}
+		.btn {
+			padding: 4px 8px;
+			border: none;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 11px;
+			background-color: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+		}
+		.btn:hover {
+			background-color: var(--vscode-button-hoverBackground);
+		}
+		.btn-danger {
+			background-color: var(--vscode-errorForeground);
+			color: white;
+		}
+		.btn-danger:hover {
+			opacity: 0.8;
+		}
+		.btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		.pagination {
+			margin-top: 20px;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			gap: 15px;
+		}
+		.empty-state {
+			text-align: center;
+			padding: 60px 20px;
+			color: var(--vscode-descriptionForeground);
+		}
+		.loading {
+			text-align: center;
+			padding: 40px;
+			color: var(--vscode-descriptionForeground);
+		}
+		.hidden {
+			display: none;
+		}
+	</style>
+</head>
+<body>
+	<h1>${i18n.title}</h1>
+	
+	<div class="toolbar">
+		<div class="search-box">
+			<input type="text" id="searchInput" placeholder="${i18n.searchPlaceholder}">
+		</div>
+		<select class="filter-select" id="typeFilter">
+			<option value="">${i18n.filterAll}</option>
+			<option value="dsl">${i18n.filterDSL}</option>
+			<option value="curl">${i18n.filterCurl}</option>
+		</select>
+		<button class="btn" id="refreshBtn">${i18n.refresh}</button>
+	</div>
+
+	<div id="loadingState" class="loading">${i18n.loading}</div>
+	<div id="emptyState" class="empty-state hidden">${i18n.empty}</div>
+	<div id="contentState" class="hidden">
+		<table id="historyTable">
+			<thead>
+				<tr>
+					<th>${i18n.colSQL}</th>
+					<th>${i18n.colType}</th>
+					<th>${i18n.colDate}</th>
+					<th>${i18n.colActions}</th>
+				</tr>
+			</thead>
+			<tbody id="tableBody">
+			</tbody>
+		</table>
+		<div class="pagination" id="pagination">
+			<button class="btn" id="prevBtn">${i18n.prev}</button>
+			<span id="pageInfo"></span>
+			<button class="btn" id="nextBtn">${i18n.next}</button>
+		</div>
+	</div>
+
+	<script>
+		const vscode = acquireVsCodeApi();
+		
+		let allHistory = [];
+		let filteredHistory = [];
+		let currentPage = 1;
+		const itemsPerPage = 10;
+		
+		function formatDate(timestamp) {
+			return new Date(timestamp).toLocaleString();
+		}
+		
+		function renderTable() {
+			const tableBody = document.getElementById('tableBody');
+			const emptyState = document.getElementById('emptyState');
+			const contentState = document.getElementById('contentState');
+			const loadingState = document.getElementById('loadingState');
+			
+			loadingState.classList.add('hidden');
+			
+			if (filteredHistory.length === 0) {
+				emptyState.classList.remove('hidden');
+				contentState.classList.add('hidden');
+				return;
+			}
+			
+			emptyState.classList.add('hidden');
+			contentState.classList.remove('hidden');
+			
+			const startIndex = (currentPage - 1) * itemsPerPage;
+			const endIndex = Math.min(startIndex + itemsPerPage, filteredHistory.length);
+			const pageItems = filteredHistory.slice(startIndex, endIndex);
+			
+			tableBody.innerHTML = pageItems.map(item => \`
+				<tr data-id="\${item.id}">
+					<td class="sql-cell" title="\${escapeHtml(item.sqlQuery)}">\${escapeHtml(item.sqlQuery)}</td>
+					<td><span class="type-badge \${item.type}">\${item.type.toUpperCase()}</span></td>
+					<td>\${formatDate(item.timestamp)}</td>
+					<td class="actions">
+						<button class="btn" data-action="viewSQL" data-id="\${item.id}">${i18n.viewSQL}</button>
+						<button class="btn" data-action="viewResult" data-id="\${item.id}">${i18n.viewResult}</button>
+						<button class="btn" data-action="copySQL" data-id="\${item.id}">${i18n.copySQL}</button>
+						<button class="btn" data-action="copyResult" data-id="\${item.id}">${i18n.copyResult}</button>
+						<button class="btn btn-danger" data-action="delete" data-id="\${item.id}">${i18n.deleteBtn}</button>
+					</td>
+				</tr>
+			\`).join('');
+			
+			updatePagination();
+		}
+		
+		function updatePagination() {
+			const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+			const prevBtn = document.getElementById('prevBtn');
+			const nextBtn = document.getElementById('nextBtn');
+			const pageInfo = document.getElementById('pageInfo');
+			
+			const pageText = '${i18n.pageInfo}'
+				.replace('{0}', currentPage)
+				.replace('{1}', totalPages || 1);
+			pageInfo.textContent = pageText;
+			
+			prevBtn.disabled = currentPage <= 1;
+			nextBtn.disabled = currentPage >= totalPages || totalPages === 0;
+		}
+		
+		function escapeHtml(text) {
+			const div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		}
+		
+		function applyFilter() {
+			const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+			const typeFilter = document.getElementById('typeFilter').value;
+			
+			filteredHistory = allHistory.filter(item => {
+				const matchesSearch = item.sqlQuery.toLowerCase().includes(searchTerm);
+				const matchesType = !typeFilter || item.type === typeFilter;
+				return matchesSearch && matchesType;
+			});
+			
+			currentPage = 1;
+			renderTable();
+		}
+		
+		document.getElementById('searchInput').addEventListener('input', applyFilter);
+		document.getElementById('typeFilter').addEventListener('change', applyFilter);
+		
+		document.getElementById('prevBtn').addEventListener('click', () => {
+			if (currentPage > 1) {
+				currentPage--;
+				renderTable();
+			}
+		});
+		
+		document.getElementById('nextBtn').addEventListener('click', () => {
+			const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+			if (currentPage < totalPages) {
+				currentPage++;
+				renderTable();
+			}
+		});
+		
+		document.getElementById('refreshBtn').addEventListener('click', () => {
+			document.getElementById('loadingState').classList.remove('hidden');
+			document.getElementById('contentState').classList.add('hidden');
+			document.getElementById('emptyState').classList.add('hidden');
+			vscode.postMessage({ command: 'refresh' });
+		});
+		
+		document.getElementById('tableBody').addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-action]');
+			if (!btn) return;
+			
+			const action = btn.dataset.action;
+			const id = btn.dataset.id;
+			
+			switch (action) {
+				case 'copySQL':
+					vscode.postMessage({ command: 'copySQL', id });
+					break;
+				case 'copyResult':
+					vscode.postMessage({ command: 'copyResult', id });
+					break;
+				case 'viewSQL':
+					vscode.postMessage({ command: 'viewSQL', id });
+					break;
+				case 'viewResult':
+					vscode.postMessage({ command: 'viewResult', id });
+					break;
+				case 'delete':
+					vscode.postMessage({ command: 'confirmDelete', id });
+					break;
+			}
+		});
+		
+		window.addEventListener('message', event => {
+			const message = event.data;
+			switch (message.command) {
+				case 'loadHistory':
+					allHistory = message.data || [];
+					applyFilter();
+					break;
+				case 'showNotification':
+					const notification = document.createElement('div');
+					notification.style.cssText = \`
+						position: fixed;
+						top: 20px;
+						right: 20px;
+						background: var(--vscode-notifications-background);
+						color: var(--vscode-notifications-foreground);
+						padding: 10px 20px;
+						border-radius: 4px;
+						box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+						z-index: 1000;
+					\`;
+					notification.textContent = message.text;
+					document.body.appendChild(notification);
+					setTimeout(() => notification.remove(), 2000);
+					break;
+			}
+		});
+	</script>
+</body>
+</html>`;
 }
 
 export function deactivate() {

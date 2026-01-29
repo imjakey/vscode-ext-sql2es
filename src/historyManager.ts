@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * 转换历史记录项接口
@@ -15,20 +17,69 @@ export interface ConversionHistoryItem {
 
 /**
  * 转换历史记录管理器
- * 负责存储和管理SQL到ES的转换历史记录
+ * 使用文件系统存储(JSON文件)替代 VS Code Memento
  */
 export class HistoryManager {
-  private static readonly STORAGE_KEY = 'sql2es.conversionHistory';
-  private static readonly MAX_HISTORY_ITEMS = 50; // 最大历史记录数量
+  private static readonly MAX_HISTORY_ITEMS = 1000; // 最大历史记录数量
+  private static readonly HISTORY_FILE = 'history.json';
+  
+  private historyFilePath: string;
 
-  constructor(private readonly storage: vscode.Memento) { }
+  constructor(private readonly context: vscode.ExtensionContext) {
+    // 使用 globalStorageUri 作为存储目录
+    const storageUri = context.globalStorageUri;
+    this.historyFilePath = path.join(storageUri.fsPath, HistoryManager.HISTORY_FILE);
+    
+    // 确保存储目录存在
+    this.ensureStorageDirectory();
+  }
+
+  /**
+   * 确保存储目录存在
+   */
+  private ensureStorageDirectory(): void {
+    const storageDir = path.dirname(this.historyFilePath);
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+  }
+
+  /**
+   * 读取历史记录文件
+   */
+  private readHistoryFile(): ConversionHistoryItem[] {
+    try {
+      if (!fs.existsSync(this.historyFilePath)) {
+        return [];
+      }
+      const data = fs.readFileSync(this.historyFilePath, 'utf-8');
+      const history = JSON.parse(data) as ConversionHistoryItem[];
+      return Array.isArray(history) ? history : [];
+    } catch (error) {
+      console.error('[SQL2ES] Failed to read history file:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 写入历史记录文件
+   */
+  private writeHistoryFile(history: ConversionHistoryItem[]): void {
+    try {
+      this.ensureStorageDirectory();
+      fs.writeFileSync(this.historyFilePath, JSON.stringify(history, null, 2), 'utf-8');
+    } catch (error) {
+      console.error('[SQL2ES] Failed to write history file:', error);
+      throw error;
+    }
+  }
 
   /**
    * 获取所有转换历史记录
    * @returns 转换历史记录数组
    */
   async getConversionHistory(): Promise<ConversionHistoryItem[]> {
-    const history = this.storage.get<ConversionHistoryItem[]>(HistoryManager.STORAGE_KEY, []);
+    const history = this.readHistoryFile();
     // 按时间戳降序排序（最新的在前）
     return history.sort((a, b) => b.timestamp - a.timestamp);
   }
@@ -69,15 +120,22 @@ export class HistoryManager {
     // 限制历史记录数量
     const trimmedHistory = history.slice(0, HistoryManager.MAX_HISTORY_ITEMS);
 
-    // 保存到存储
-    await this.storage.update(HistoryManager.STORAGE_KEY, trimmedHistory);
+    // 保存到文件
+    this.writeHistoryFile(trimmedHistory);
   }
 
   /**
    * 清除所有转换历史记录
    */
   async clearConversionHistory(): Promise<void> {
-    await this.storage.update(HistoryManager.STORAGE_KEY, []);
+    try {
+      if (fs.existsSync(this.historyFilePath)) {
+        fs.unlinkSync(this.historyFilePath);
+      }
+    } catch (error) {
+      console.error('[SQL2ES] Failed to clear history:', error);
+      throw error;
+    }
   }
 
   /**
@@ -85,7 +143,52 @@ export class HistoryManager {
    * @param history 新的历史记录数组
    */
   async updateConversionHistory(history: ConversionHistoryItem[]): Promise<void> {
-    await this.storage.update(HistoryManager.STORAGE_KEY, history);
+    this.writeHistoryFile(history);
+  }
+
+  /**
+   * 更新单个转换历史记录
+   * @param id 要更新的记录ID
+   * @param updatedItem 更新后的记录
+   */
+  async updateSingleConversionHistory(id: string, updatedItem: Partial<ConversionHistoryItem>): Promise<boolean> {
+    const history = await this.getConversionHistory();
+    const index = history.findIndex(item => item.id === id);
+
+    if (index !== -1) {
+      // 合并更新的字段
+      history[index] = { ...history[index], ...updatedItem };
+      // 保存到文件
+      this.writeHistoryFile(history);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 删除单条历史记录
+   * @param id 要删除的记录ID
+   */
+  async deleteConversionHistory(id: string): Promise<boolean> {
+    const history = await this.getConversionHistory();
+    const index = history.findIndex(item => item.id === id);
+    
+    if (index !== -1) {
+      history.splice(index, 1);
+      this.writeHistoryFile(history);
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 获取历史记录总数
+   */
+  async getHistoryCount(): Promise<number> {
+    const history = await this.getConversionHistory();
+    return history.length;
   }
 
   /**
@@ -93,6 +196,6 @@ export class HistoryManager {
    * @returns 唯一标识符
    */
   private generateUniqueId(): string {
-    return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
   }
 }

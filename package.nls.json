@@ -38,5 +38,20 @@
   "history.action.copySQL": "Copy SQL",
   "history.action.copyResult": "Copy Result",
   "history.action.insertSQL": "Insert SQL",
-  "history.action.insertResult": "Insert Result"
+  "history.action.insertResult": "Insert Result",
+  "history.webview.searchPlaceholder": "Search SQL...",
+  "history.webview.filterAll": "All Types",
+  "history.webview.filterDSL": "DSL",
+  "history.webview.filterCurl": "Curl",
+  "history.webview.refresh": "Refresh",
+  "history.webview.colSQL": "SQL Query",
+  "history.webview.colType": "Type",
+  "history.webview.colDate": "Date",
+  "history.webview.colActions": "Actions",
+  "history.webview.loading": "Loading history...",
+  "history.webview.empty": "No conversion history records found.",
+  "history.webview.delete": "Delete",
+  "history.webview.prev": "Previous",
+  "history.webview.next": "Next",
+  "history.webview.pageInfo": "Page {0} of {1}"
 }

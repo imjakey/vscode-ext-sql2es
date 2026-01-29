@@ -60,5 +60,20 @@ export const HistoryKeys = {
   copySQLAction: 'history.action.copySQL',
   copyResultAction: 'history.action.copyResult',
   insertSQLAction: 'history.action.insertSQL',
-  insertResultAction: 'history.action.insertResult'
+  insertResultAction: 'history.action.insertResult',
+  searchPlaceholder: 'history.webview.searchPlaceholder',
+  filterAll: 'history.webview.filterAll',
+  filterDSL: 'history.webview.filterDSL',
+  filterCurl: 'history.webview.filterCurl',
+  refreshBtn: 'history.webview.refresh',
+  colSQL: 'history.webview.colSQL',
+  colType: 'history.webview.colType',
+  colDate: 'history.webview.colDate',
+  colActions: 'history.webview.colActions',
+  loadingText: 'history.webview.loading',
+  emptyText: 'history.webview.empty',
+  deleteBtn: 'history.webview.delete',
+  prevBtn: 'history.webview.prev',
+  nextBtn: 'history.webview.next',
+  pageInfo: 'history.webview.pageInfo'
 } as const;

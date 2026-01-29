@@ -38,5 +38,20 @@
   "history.action.copySQL": "复制SQL",
   "history.action.copyResult": "复制结果",
   "history.action.insertSQL": "插入SQL",
-  "history.action.insertResult": "插入结果"
+  "history.action.insertResult": "插入结果",
+  "history.webview.searchPlaceholder": "搜索 SQL...",
+  "history.webview.filterAll": "全部类型",
+  "history.webview.filterDSL": "DSL",
+  "history.webview.filterCurl": "Curl",
+  "history.webview.refresh": "刷新",
+  "history.webview.colSQL": "SQL 查询",
+  "history.webview.colType": "类型",
+  "history.webview.colDate": "日期",
+  "history.webview.colActions": "操作",
+  "history.webview.loading": "正在加载历史记录...",
+  "history.webview.empty": "未找到转换历史记录。",
+  "history.webview.delete": "删除",
+  "history.webview.prev": "上一页",
+  "history.webview.next": "下一页",
+  "history.webview.pageInfo": "第 {0} 页，共 {1} 页"
 }
