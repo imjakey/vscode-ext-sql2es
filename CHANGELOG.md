@@ -2,6 +2,19 @@
 
 All notable changes to the "sql2es" extension will be documented in this file.
 
+## [0.0.4] - 2026-01-29
+
+### Added
+
+- **History Record Management**: Added full-featured conversion history management
+  - WebView-based history viewer with table display, search, type filter, and pagination
+  - Support for copying SQL/Result, viewing in new tab, and deleting records
+  - **Edit Functionality**: Allow manual correction of inaccurate AI conversion results
+
+### Fixed
+
+- Fixed command palette translation not working due to incorrect `l10n` configuration
+
 ## [0.0.3] - 2025-08-14
 
 - Bugfix when AI model return ES DSL with ` ```json ``` ` wrapped
