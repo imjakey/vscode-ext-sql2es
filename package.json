@@ -14,7 +14,6 @@
   "activationEvents": [
 		"onStartupFinished"
 	],
-  "l10n": "./package.nls.json",
   "categories": [
     "Programming Languages"
   ],

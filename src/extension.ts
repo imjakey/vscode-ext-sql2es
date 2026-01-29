@@ -439,12 +439,20 @@ function getWebviewContent(): string {
 		.btn:hover {
 			background-color: var(--vscode-button-hoverBackground);
 		}
+		/* Element UI 配色方案 */
 		.btn-danger {
-			background-color: var(--vscode-errorForeground);
+			background-color: #F56C6C;
 			color: white;
 		}
 		.btn-danger:hover {
-			opacity: 0.8;
+			background-color: #f78989;
+		}
+		.btn-warning {
+			background-color: #E6A23C;
+			color: white;
+		}
+		.btn-warning:hover {
+			background-color: #ebb563;
 		}
 		.btn:disabled {
 			opacity: 0.5;
@@ -669,7 +677,7 @@ function getWebviewContent(): string {
 						<button class="btn" data-action="viewResult" data-id="\${item.id}">\${t('history.action.viewResult')}</button>
 						<button class="btn" data-action="copySQL" data-id="\${item.id}">\${t('history.action.copySQL')}</button>
 						<button class="btn" data-action="copyResult" data-id="\${item.id}">\${t('history.action.copyResult')}</button>
-						<button class="btn" data-action="edit" data-id="\${item.id}">\${t('history.webview.editResult')}</button>
+						<button class="btn btn-warning" data-action="edit" data-id="\${item.id}">\${t('history.webview.editResult')}</button>
 						<button class="btn btn-danger" data-action="delete" data-id="\${item.id}">\${t('history.webview.delete')}</button>
 					</td>
 				</tr>
