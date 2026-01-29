@@ -53,5 +53,10 @@
   "history.webview.delete": "删除",
   "history.webview.prev": "上一页",
   "history.webview.next": "下一页",
-  "history.webview.pageInfo": "第 {0} 页，共 {1} 页"
+  "history.webview.pageInfo": "第 {0} 页，共 {1} 页",
+  "history.webview.editResult": "编辑结果",
+  "history.webview.editTitle": "编辑转换结果",
+  "history.webview.editSave": "保存",
+  "history.webview.editCancel": "取消",
+  "history.webview.editSuccess": "记录已更新"
 }

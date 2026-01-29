@@ -53,5 +53,10 @@
   "history.webview.delete": "Delete",
   "history.webview.prev": "Previous",
   "history.webview.next": "Next",
-  "history.webview.pageInfo": "Page {0} of {1}"
+  "history.webview.pageInfo": "Page {0} of {1}",
+  "history.webview.editResult": "Edit Result",
+  "history.webview.editTitle": "Edit Conversion Result",
+  "history.webview.editSave": "Save",
+  "history.webview.editCancel": "Cancel",
+  "history.webview.editSuccess": "Record updated successfully"
 }

@@ -112,6 +112,12 @@ export function activate(context: vscode.ExtensionContext) {
 					case 'refresh':
 						await loadAndSendHistory(panel, historyManager);
 						break;
+					case 'editResult':
+						await handleEditResult(message.id, message.data, historyManager, panel);
+						break;
+					case 'getRecordForEdit':
+						await handleGetRecordForEdit(message.id, historyManager, panel);
+						break;
 				}
 			}, undefined, context.subscriptions);
 
@@ -268,6 +274,68 @@ async function handleViewResult(id: string, historyManager: HistoryManager): Pro
 }
 
 /**
+ * 处理获取记录用于编辑
+ */
+async function handleGetRecordForEdit(
+	id: string,
+	historyManager: HistoryManager,
+	panel: vscode.WebviewPanel
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (item) {
+		const resultText = item.type === 'dsl'
+			? (item.apiPath ? item.apiPath + '\n\n' : '') + (item.esQuery || '')
+			: item.curlCommand || '';
+		panel.webview.postMessage({
+			command: 'showEditModal',
+			id: id,
+			data: resultText,
+			type: item.type
+		});
+	}
+}
+
+/**
+ * 处理编辑结果
+ */
+async function handleEditResult(
+	id: string,
+	data: string,
+	historyManager: HistoryManager,
+	panel: vscode.WebviewPanel
+): Promise<void> {
+	const history = await historyManager.getConversionHistory();
+	const item = history.find(h => h.id === id);
+	if (!item) return;
+
+	let updateFields: Partial<ConversionHistoryItem> = {};
+
+	if (item.type === 'dsl') {
+		// 对于DSL类型，分割API路径和查询部分
+		const lines = data.split('\n\n');
+		if (lines.length > 1) {
+			updateFields.apiPath = lines[0].trim();
+			updateFields.esQuery = lines.slice(1).join('\n').trim();
+		} else {
+			updateFields.esQuery = data.trim();
+		}
+	} else {
+		// 对于Curl类型，直接更新命令
+		updateFields.curlCommand = data;
+	}
+
+	const success = await historyManager.updateSingleConversionHistory(id, updateFields);
+	if (success) {
+		await loadAndSendHistory(panel, historyManager);
+		panel.webview.postMessage({
+			command: 'showNotification',
+			text: 'Record updated successfully'
+		});
+	}
+}
+
+/**
  * 生成 WebView HTML 内容
  * 翻译字符串通过 postMessage 传递
  */
@@ -402,11 +470,85 @@ function getWebviewContent(): string {
 		.hidden {
 			display: none;
 		}
+		/* Edit Modal Styles */
+		.modal-overlay {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.5);
+			z-index: 1000;
+			justify-content: center;
+			align-items: center;
+		}
+		.modal-overlay.active {
+			display: flex;
+		}
+		.modal-content {
+			background-color: var(--vscode-editor-background);
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			width: 80%;
+			max-width: 800px;
+			max-height: 80vh;
+			display: flex;
+			flex-direction: column;
+		}
+		.modal-header {
+			padding: 15px 20px;
+			border-bottom: 1px solid var(--vscode-panel-border);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.modal-header h2 {
+			margin: 0;
+			font-size: 1.2em;
+		}
+		.modal-body {
+			padding: 20px;
+			flex: 1;
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+		}
+		.modal-body textarea {
+			width: 100%;
+			flex: 1;
+			min-height: 200px;
+			padding: 10px;
+			border: 1px solid var(--vscode-input-border);
+			background-color: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border-radius: 3px;
+			font-family: var(--vscode-editor-font-family);
+			font-size: var(--vscode-editor-font-size);
+			resize: none;
+		}
+		.modal-footer {
+			padding: 15px 20px;
+			border-top: 1px solid var(--vscode-panel-border);
+			display: flex;
+			justify-content: flex-end;
+			gap: 10px;
+		}
+		.btn-secondary {
+			background-color: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+		}
+		.btn-secondary:hover {
+			background-color: var(--vscode-button-secondaryHoverBackground);
+		}
+		.edit-hint {
+			margin-top: 8px;
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+		}
 	</style>
 </head>
 <body>
-	<h1 id="pageTitle">SQL2ES Conversion History</h1>
-	
 	<div class="toolbar">
 		<div class="search-box">
 			<input type="text" id="searchInput" placeholder="Search SQL...">
@@ -441,6 +583,23 @@ function getWebviewContent(): string {
 		</div>
 	</div>
 
+	<!-- Edit Modal -->
+	<div id="editModal" class="modal-overlay">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h2 id="editTitle">Edit Conversion Result</h2>
+			</div>
+			<div class="modal-body">
+				<textarea id="editTextarea"></textarea>
+				<div class="edit-hint" id="editHint"></div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn btn-secondary" id="editCancelBtn">Cancel</button>
+				<button class="btn" id="editSaveBtn">Save</button>
+			</div>
+		</div>
+	</div>
+
 	<script>
 		const vscode = acquireVsCodeApi();
 		
@@ -449,6 +608,7 @@ function getWebviewContent(): string {
 		let currentPage = 1;
 		const itemsPerPage = 10;
 		let i18n = {};
+		let currentEditId = null;
 		
 		// 翻译函数
 		function t(key) {
@@ -460,7 +620,6 @@ function getWebviewContent(): string {
 		}
 		
 		function applyTranslations() {
-			document.getElementById('pageTitle').textContent = t('history.view.title');
 			document.getElementById('searchInput').placeholder = t('history.webview.searchPlaceholder');
 			document.getElementById('typeFilter').options[0].textContent = t('history.webview.filterAll');
 			document.getElementById('typeFilter').options[1].textContent = t('history.webview.filterDSL');
@@ -474,6 +633,9 @@ function getWebviewContent(): string {
 			document.getElementById('colActions').textContent = t('history.webview.colActions');
 			document.getElementById('prevBtn').textContent = t('history.webview.prev');
 			document.getElementById('nextBtn').textContent = t('history.webview.next');
+			document.getElementById('editTitle').textContent = t('history.webview.editTitle');
+			document.getElementById('editCancelBtn').textContent = t('history.webview.editCancel');
+			document.getElementById('editSaveBtn').textContent = t('history.webview.editSave');
 		}
 		
 		function renderTable() {
@@ -507,6 +669,7 @@ function getWebviewContent(): string {
 						<button class="btn" data-action="viewResult" data-id="\${item.id}">\${t('history.action.viewResult')}</button>
 						<button class="btn" data-action="copySQL" data-id="\${item.id}">\${t('history.action.copySQL')}</button>
 						<button class="btn" data-action="copyResult" data-id="\${item.id}">\${t('history.action.copyResult')}</button>
+						<button class="btn" data-action="edit" data-id="\${item.id}">\${t('history.webview.editResult')}</button>
 						<button class="btn btn-danger" data-action="delete" data-id="\${item.id}">\${t('history.webview.delete')}</button>
 					</td>
 				</tr>
@@ -575,6 +738,50 @@ function getWebviewContent(): string {
 			vscode.postMessage({ command: 'refresh' });
 		});
 		
+		// Edit Modal Functions
+		function openEditModal(id, data, type) {
+			currentEditId = id;
+			document.getElementById('editTextarea').value = data;
+			
+			// Show hint for DSL type
+			const hintEl = document.getElementById('editHint');
+			if (type === 'dsl') {
+				hintEl.textContent = 'Tip: For DSL queries, separate API path and query body with a blank line';
+			} else {
+				hintEl.textContent = '';
+			}
+			
+			document.getElementById('editModal').classList.add('active');
+		}
+		
+		function closeEditModal() {
+			currentEditId = null;
+			document.getElementById('editModal').classList.remove('active');
+			document.getElementById('editTextarea').value = '';
+		}
+		
+		function saveEdit() {
+			if (!currentEditId) return;
+			
+			const data = document.getElementById('editTextarea').value;
+			vscode.postMessage({
+				command: 'editResult',
+				id: currentEditId,
+				data: data
+			});
+			closeEditModal();
+		}
+		
+		document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+		document.getElementById('editSaveBtn').addEventListener('click', saveEdit);
+		
+		// Close modal when clicking overlay
+		document.getElementById('editModal').addEventListener('click', (e) => {
+			if (e.target.id === 'editModal') {
+				closeEditModal();
+			}
+		});
+		
 		document.getElementById('tableBody').addEventListener('click', (e) => {
 			const btn = e.target.closest('[data-action]');
 			if (!btn) return;
@@ -595,6 +802,9 @@ function getWebviewContent(): string {
 				case 'viewResult':
 					vscode.postMessage({ command: 'viewResult', id });
 					break;
+				case 'edit':
+					vscode.postMessage({ command: 'getRecordForEdit', id });
+					break;
 				case 'delete':
 					vscode.postMessage({ command: 'confirmDelete', id });
 					break;
@@ -613,6 +823,9 @@ function getWebviewContent(): string {
 				case 'loadHistory':
 					allHistory = message.data || [];
 					applyFilter();
+					break;
+				case 'showEditModal':
+					openEditModal(message.id, message.data, message.type);
 					break;
 				case 'showNotification':
 					const notification = document.createElement('div');

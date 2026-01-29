@@ -139,5 +139,10 @@ export const HistoryKeys = {
   deleteBtn: 'history.webview.delete',
   prevBtn: 'history.webview.prev',
   nextBtn: 'history.webview.next',
-  pageInfo: 'history.webview.pageInfo'
+  pageInfo: 'history.webview.pageInfo',
+  editResult: 'history.webview.editResult',
+  editTitle: 'history.webview.editTitle',
+  editSave: 'history.webview.editSave',
+  editCancel: 'history.webview.editCancel',
+  editSuccess: 'history.webview.editSuccess'
 } as const;
