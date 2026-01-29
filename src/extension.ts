@@ -7,6 +7,9 @@ import { HistoryManager, ConversionHistoryItem } from './historyManager';
 export function activate(context: vscode.ExtensionContext) {
 	console.log('SQL to ES extension is now active!');
 
+	// 初始化本地化
+	Localize.initialize(context);
+
 	const configManager = new ConfigManager();
 	const converter = new SQLToESConverter(configManager);
 	const historyManager = new HistoryManager(context);
@@ -79,29 +82,8 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			);
 
-			// 设置webview HTML内容（不包含数据）
-			panel.webview.html = getWebviewContent({
-				title: Localize.localize(HistoryKeys.viewHistoryCommand),
-				searchPlaceholder: Localize.localize(HistoryKeys.searchPlaceholder),
-				filterAll: Localize.localize(HistoryKeys.filterAll),
-				filterDSL: Localize.localize(HistoryKeys.filterDSL),
-				filterCurl: Localize.localize(HistoryKeys.filterCurl),
-				refresh: Localize.localize(HistoryKeys.refreshBtn),
-				loading: Localize.localize(HistoryKeys.loadingText),
-				empty: Localize.localize(HistoryKeys.emptyText),
-				colSQL: Localize.localize(HistoryKeys.colSQL),
-				colType: Localize.localize(HistoryKeys.colType),
-				colDate: Localize.localize(HistoryKeys.colDate),
-				colActions: Localize.localize(HistoryKeys.colActions),
-				viewSQL: Localize.localize(HistoryKeys.viewSQLAction),
-				viewResult: Localize.localize(HistoryKeys.viewResultAction),
-				copySQL: Localize.localize(HistoryKeys.copySQLAction),
-				copyResult: Localize.localize(HistoryKeys.copyResultAction),
-				deleteBtn: Localize.localize(HistoryKeys.deleteBtn),
-				prev: Localize.localize(HistoryKeys.prevBtn),
-				next: Localize.localize(HistoryKeys.nextBtn),
-				pageInfo: Localize.localize(HistoryKeys.pageInfo)
-			});
+			// 设置webview HTML内容（不包含数据和翻译）
+			panel.webview.html = getWebviewContent();
 
 			// 加载并发送历史记录数据
 			await loadAndSendHistory(panel, historyManager);
@@ -165,16 +147,18 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * 加载历史记录并发送到 WebView
+ * 加载历史记录和翻译并发送到 WebView
  */
 async function loadAndSendHistory(
 	panel: vscode.WebviewPanel,
 	historyManager: HistoryManager
 ): Promise<void> {
 	const history = await historyManager.getConversionHistory();
+	const translations = Localize.getWebviewTranslations();
 	panel.webview.postMessage({
-		command: 'loadHistory',
-		data: history
+		command: 'init',
+		data: history,
+		translations: translations
 	});
 }
 
@@ -283,39 +267,17 @@ async function handleViewResult(id: string, historyManager: HistoryManager): Pro
 	}
 }
 
-interface WebviewContentOptions {
-	title: string;
-	searchPlaceholder: string;
-	filterAll: string;
-	filterDSL: string;
-	filterCurl: string;
-	refresh: string;
-	loading: string;
-	empty: string;
-	colSQL: string;
-	colType: string;
-	colDate: string;
-	colActions: string;
-	viewSQL: string;
-	viewResult: string;
-	copySQL: string;
-	copyResult: string;
-	deleteBtn: string;
-	prev: string;
-	next: string;
-	pageInfo: string;
-}
-
 /**
  * 生成 WebView HTML 内容
+ * 翻译字符串通过 postMessage 传递
  */
-function getWebviewContent(i18n: WebviewContentOptions): string {
+function getWebviewContent(): string {
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>${i18n.title}</title>
+	<title>SQL2ES Conversion History</title>
 	<style>
 		* { box-sizing: border-box; }
 		body {
@@ -443,39 +405,39 @@ function getWebviewContent(i18n: WebviewContentOptions): string {
 	</style>
 </head>
 <body>
-	<h1>${i18n.title}</h1>
+	<h1 id="pageTitle">SQL2ES Conversion History</h1>
 	
 	<div class="toolbar">
 		<div class="search-box">
-			<input type="text" id="searchInput" placeholder="${i18n.searchPlaceholder}">
+			<input type="text" id="searchInput" placeholder="Search SQL...">
 		</div>
 		<select class="filter-select" id="typeFilter">
-			<option value="">${i18n.filterAll}</option>
-			<option value="dsl">${i18n.filterDSL}</option>
-			<option value="curl">${i18n.filterCurl}</option>
+			<option value="">All Types</option>
+			<option value="dsl">DSL</option>
+			<option value="curl">Curl</option>
 		</select>
-		<button class="btn" id="refreshBtn">${i18n.refresh}</button>
+		<button class="btn" id="refreshBtn">Refresh</button>
 	</div>
 
-	<div id="loadingState" class="loading">${i18n.loading}</div>
-	<div id="emptyState" class="empty-state hidden">${i18n.empty}</div>
+	<div id="loadingState" class="loading">Loading history...</div>
+	<div id="emptyState" class="empty-state hidden">No conversion history records found.</div>
 	<div id="contentState" class="hidden">
 		<table id="historyTable">
 			<thead>
 				<tr>
-					<th>${i18n.colSQL}</th>
-					<th>${i18n.colType}</th>
-					<th>${i18n.colDate}</th>
-					<th>${i18n.colActions}</th>
+					<th id="colSQL">SQL Query</th>
+					<th id="colType">Type</th>
+					<th id="colDate">Date</th>
+					<th id="colActions">Actions</th>
 				</tr>
 			</thead>
 			<tbody id="tableBody">
 			</tbody>
 		</table>
 		<div class="pagination" id="pagination">
-			<button class="btn" id="prevBtn">${i18n.prev}</button>
+			<button class="btn" id="prevBtn">Previous</button>
 			<span id="pageInfo"></span>
-			<button class="btn" id="nextBtn">${i18n.next}</button>
+			<button class="btn" id="nextBtn">Next</button>
 		</div>
 	</div>
 
@@ -486,9 +448,32 @@ function getWebviewContent(i18n: WebviewContentOptions): string {
 		let filteredHistory = [];
 		let currentPage = 1;
 		const itemsPerPage = 10;
+		let i18n = {};
+		
+		// 翻译函数
+		function t(key) {
+			return i18n[key] || key;
+		}
 		
 		function formatDate(timestamp) {
 			return new Date(timestamp).toLocaleString();
+		}
+		
+		function applyTranslations() {
+			document.getElementById('pageTitle').textContent = t('history.view.title');
+			document.getElementById('searchInput').placeholder = t('history.webview.searchPlaceholder');
+			document.getElementById('typeFilter').options[0].textContent = t('history.webview.filterAll');
+			document.getElementById('typeFilter').options[1].textContent = t('history.webview.filterDSL');
+			document.getElementById('typeFilter').options[2].textContent = t('history.webview.filterCurl');
+			document.getElementById('refreshBtn').textContent = t('history.webview.refresh');
+			document.getElementById('loadingState').textContent = t('history.webview.loading');
+			document.getElementById('emptyState').textContent = t('history.webview.empty');
+			document.getElementById('colSQL').textContent = t('history.webview.colSQL');
+			document.getElementById('colType').textContent = t('history.webview.colType');
+			document.getElementById('colDate').textContent = t('history.webview.colDate');
+			document.getElementById('colActions').textContent = t('history.webview.colActions');
+			document.getElementById('prevBtn').textContent = t('history.webview.prev');
+			document.getElementById('nextBtn').textContent = t('history.webview.next');
 		}
 		
 		function renderTable() {
@@ -518,11 +503,11 @@ function getWebviewContent(i18n: WebviewContentOptions): string {
 					<td><span class="type-badge \${item.type}">\${item.type.toUpperCase()}</span></td>
 					<td>\${formatDate(item.timestamp)}</td>
 					<td class="actions">
-						<button class="btn" data-action="viewSQL" data-id="\${item.id}">${i18n.viewSQL}</button>
-						<button class="btn" data-action="viewResult" data-id="\${item.id}">${i18n.viewResult}</button>
-						<button class="btn" data-action="copySQL" data-id="\${item.id}">${i18n.copySQL}</button>
-						<button class="btn" data-action="copyResult" data-id="\${item.id}">${i18n.copyResult}</button>
-						<button class="btn btn-danger" data-action="delete" data-id="\${item.id}">${i18n.deleteBtn}</button>
+						<button class="btn" data-action="viewSQL" data-id="\${item.id}">\${t('history.action.viewSQL')}</button>
+						<button class="btn" data-action="viewResult" data-id="\${item.id}">\${t('history.action.viewResult')}</button>
+						<button class="btn" data-action="copySQL" data-id="\${item.id}">\${t('history.action.copySQL')}</button>
+						<button class="btn" data-action="copyResult" data-id="\${item.id}">\${t('history.action.copyResult')}</button>
+						<button class="btn btn-danger" data-action="delete" data-id="\${item.id}">\${t('history.webview.delete')}</button>
 					</td>
 				</tr>
 			\`).join('');
@@ -536,7 +521,7 @@ function getWebviewContent(i18n: WebviewContentOptions): string {
 			const nextBtn = document.getElementById('nextBtn');
 			const pageInfo = document.getElementById('pageInfo');
 			
-			const pageText = '${i18n.pageInfo}'
+			const pageText = t('history.webview.pageInfo')
 				.replace('{0}', currentPage)
 				.replace('{1}', totalPages || 1);
 			pageInfo.textContent = pageText;
@@ -619,6 +604,12 @@ function getWebviewContent(i18n: WebviewContentOptions): string {
 		window.addEventListener('message', event => {
 			const message = event.data;
 			switch (message.command) {
+				case 'init':
+					i18n = message.translations || {};
+					applyTranslations();
+					allHistory = message.data || [];
+					applyFilter();
+					break;
 				case 'loadHistory':
 					allHistory = message.data || [];
 					applyFilter();

@@ -3,8 +3,45 @@
  * 用于在代码中获取多语言字符串
  */
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class Localize {
+  private static translations: Record<string, string> | null = null;
+  private static currentLanguage: string = 'en';
+
+  /**
+   * 初始化本地化，加载翻译文件
+   */
+  static initialize(context: vscode.ExtensionContext): void {
+    // 获取 VS Code 当前语言
+    this.currentLanguage = vscode.env.language;
+    
+    // 构建翻译文件路径
+    const extensionPath = context.extensionPath;
+    const nlsFileName = this.currentLanguage.startsWith('zh') 
+      ? 'package.nls.zh-cn.json' 
+      : 'package.nls.json';
+    const nlsFilePath = path.join(extensionPath, nlsFileName);
+    
+    try {
+      if (fs.existsSync(nlsFilePath)) {
+        const content = fs.readFileSync(nlsFilePath, 'utf-8');
+        this.translations = JSON.parse(content);
+      } else {
+        // 回退到默认语言
+        const defaultPath = path.join(extensionPath, 'package.nls.json');
+        if (fs.existsSync(defaultPath)) {
+          const content = fs.readFileSync(defaultPath, 'utf-8');
+          this.translations = JSON.parse(content);
+        }
+      }
+    } catch (error) {
+      console.error('[SQL2ES] Failed to load translations:', error);
+      this.translations = {};
+    }
+  }
+
   /**
    * 获取本地化字符串
    * @param key 字符串键名
@@ -12,24 +49,51 @@ export class Localize {
    * @returns 本地化字符串
    */
   static localize(key: string, ...args: any[]): string {
-    try {
-      // 使用VS Code的l10n API获取本地化字符串
-      if (args.length > 0) {
-        return vscode.l10n.t(key, ...args);
+    // 如果翻译未加载，尝试使用 vscode.l10n.t 作为后备
+    if (!this.translations) {
+      try {
+        if (args.length > 0) {
+          return vscode.l10n.t(key, ...args);
+        }
+        return vscode.l10n.t(key);
+      } catch {
+        return key;
       }
-      return vscode.l10n.t(key);
-    } catch (error) {
-      // 如果l10n API不可用或出现错误，则返回键名
-      // 处理参数替换
-      if (args.length > 0) {
-        let result = key;
-        args.forEach((arg: any, index: number) => {
-          result = result.replace(`{${index}}`, arg);
-        });
-        return result;
-      }
-      return key;
     }
+
+    // 从翻译文件中获取
+    let text = this.translations[key] || key;
+    
+    // 处理参数替换
+    if (args.length > 0) {
+      args.forEach((arg: any, index: number) => {
+        text = text.replace(`{${index}}`, arg);
+      });
+    }
+    
+    return text;
+  }
+
+  /**
+   * 获取所有 WebView 需要的翻译字符串
+   */
+  static getWebviewTranslations(): Record<string, string> {
+    if (!this.translations) {
+      return {};
+    }
+
+    // 筛选出 WebView 需要的键
+    const webviewKeys = Object.keys(this.translations).filter(key => 
+      key.startsWith('history.webview.') ||
+      key.startsWith('history.action.')
+    );
+
+    const result: Record<string, string> = {};
+    webviewKeys.forEach(key => {
+      result[key] = this.translations![key];
+    });
+
+    return result;
   }
 }
 
